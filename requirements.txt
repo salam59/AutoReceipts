@@ -1,3 +1,5 @@
 django
 djangorestframework
 openai
+pypdfium2
+pillow
