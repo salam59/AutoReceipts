@@ -1,0 +1,26 @@
+from django.db import models
+
+class ReceiptMetaData(models.Model):
+    file_name = models.CharField(max_length=255)
+    file_path = models.CharField(max_length=255)
+    is_valid = models.BooleanField(default=False)
+    invalid_reason = models.CharField(max_length=255, blank=True, null=True)
+    is_processed = models.BooleanField(default=False)
+    failure_reason = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.file_name
+
+class ReceiptData(models.Model):
+    purchased_at = models.DateTimeField(blank=True, null=True)
+    merchant_name = models.CharField(max_length=255, blank=True, null=True)
+    total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    receipt_file = models.OneToOneField(ReceiptFile, on_delete=models.CASCADE, related_name='receipt_data', blank=True, null=True)
+
+
+    def __str__(self):
+        return f"{self.merchant_name} - {self.total_amount}"
