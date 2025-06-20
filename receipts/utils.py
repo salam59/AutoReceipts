@@ -61,14 +61,27 @@ def prepare_prompt(images_path, num_images):
     return prompt_format
 
 def extract_receipt_data(file_path, file_id):
-    images_path = convert_pdf_to_images(file_path, file_id)
-
+    ext = os.path.splitext(file_path)[1].lower()
+    image_exts = ['.jpg', '.jpeg', '.png']
+    if ext == '.pdf':
+        images_path, num_images = convert_pdf_to_images(file_path, file_id)
+    elif ext in image_exts:
+        # Handle single image file
+        os.makedirs(f'images/{file_id}', exist_ok=True)
+        dest_path = os.path.join('images', file_id, '1.jpg')
+        # Convert to JPEG if not already
+        with Image.open(file_path) as img:
+            rgb_img = img.convert('RGB')
+            rgb_img.save(dest_path, format='JPEG', quality=95, optimize=True)
+        images_path = f'images/{file_id}'
+        num_images = 1
+    else:
+        return {}, "Unsupported file type"
     client = OpenAI(
         base_url=os.getenv('OPENAI_BASE_URL'),
         api_key=os.getenv('OPENAI_API_KEY')
         )
 
-    images_path, num_images = convert_pdf_to_images(file_path, file_id)
     prompt = prepare_prompt(images_path, num_images)
 
     response = client.chat.completions.create(
