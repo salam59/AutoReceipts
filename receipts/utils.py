@@ -5,6 +5,11 @@ import shutil, base64, json
 from openai import OpenAI
 import pypdfium2 as pdfium
 from PIL import Image
+from dotenv import load_dotenv
+
+from .prompts import RECEIPT_EXTRACT_PROMPT
+
+load_dotenv()
 
 def convert_pdf_to_images(file_path, file_id, scale=100/72):
         pdf_file = pdfium.PdfDocument(file_path)
