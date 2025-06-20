@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from receipts.models import ReceiptMetaData, ReceiptData
+from receipts.models import ReceiptMetaData, Receipt, LineItem
 
 class ReceiptMetaDataSerializer(serializers.ModelSerializer):
     class Meta:
@@ -8,5 +8,10 @@ class ReceiptMetaDataSerializer(serializers.ModelSerializer):
 
 class ReceiptDataSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ReceiptData
+        model = Receipt
+        fields = '__all__'
+
+class LineItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LineItem
         fields = '__all__'
