@@ -2,7 +2,7 @@ from django.db import models
 
 class ReceiptMetaData(models.Model):
     file_name = models.CharField(max_length=255)
-    # file_path = models.CharField(max_length=255)
+    file_path = models.CharField(max_length=255)
     is_valid = models.BooleanField(default=False)
     invalid_reason = models.CharField(max_length=255, blank=True, null=True)
     is_processed = models.BooleanField(default=False)

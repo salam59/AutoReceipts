@@ -2,12 +2,13 @@ from io import BytesIO
 import os
 import shutil, base64, json
 
+import openai
 from openai import OpenAI
 import pypdfium2 as pdfium
 from PIL import Image
 from dotenv import load_dotenv
 
-from receipts.prompts import RECEIPT_EXTRACT_PROMPT
+from receipts.prompts import RECEIPT_EXTRACT_PROMPT, CLASSIFICATION_PROMPT
 
 load_dotenv()
 
@@ -45,9 +46,9 @@ def convert_pdf_to_images(file_path, file_id, scale=100/72):
 
         return f'images/{file_id}', num_pages 
 
-def prepare_prompt(images_path, num_images):
+def prepare_prompt(prompt, images_path, num_images):
     prompt_with_images = [
-        {'type': 'text', 'text': RECEIPT_EXTRACT_PROMPT},
+        {'type': 'text', 'text': prompt},
     ]
     for page in range(1, num_images + 1):
         image_path = f"{images_path}/{page}.jpg"
@@ -60,33 +61,61 @@ def prepare_prompt(images_path, num_images):
     ]
     return prompt_format
 
-def extract_receipt_data(file_path, file_id):
+def pre_processing_data(file_path, file_id):
     ext = os.path.splitext(file_path)[1].lower()
     image_exts = ['.jpg', '.jpeg', '.png']
+
     if ext == '.pdf':
         images_path, num_images = convert_pdf_to_images(file_path, file_id)
     elif ext in image_exts:
-        # Handle single image file
         os.makedirs(f'images/{file_id}', exist_ok=True)
         dest_path = os.path.join('images', file_id, '1.jpg')
-        # Convert to JPEG if not already
         with Image.open(file_path) as img:
             rgb_img = img.convert('RGB')
             rgb_img.save(dest_path, format='JPEG', quality=95, optimize=True)
         images_path = f'images/{file_id}'
         num_images = 1
-    else:
-        return {}, "Unsupported file type"
+
+    return images_path, num_images
+
+def create_openai_client():
     client = OpenAI(
         base_url=os.getenv('OPENAI_BASE_URL'),
         api_key=os.getenv('OPENAI_API_KEY')
         )
+    return client
 
-    prompt = prepare_prompt(images_path, num_images)
+def extract_receipt_data(file_path, file_id):
+    ext = os.path.splitext(file_path)[1].lower()
+    image_exts = ['.jpg', '.jpeg', '.png']
+    if ext == '.pdf' or ext in image_exts:
+        images_path, num_images = pre_processing_data(file_path, file_id)
+    else:
+        return {}, "Unsupported file type"
+    client = create_openai_client()
 
-    response = client.chat.completions.create(
-        model=os.getenv('LLM_MODEL'),
-        messages=[prompt],
-        response_format={"type": "json_object"},
-    )
-    return response.choices[0].message.content
+    prompt = prepare_prompt(RECEIPT_EXTRACT_PROMPT, images_path, num_images)
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv('LLM_MODEL'),
+            messages=[prompt],
+            response_format={"type": "json_object"},
+        )
+        return response.choices[0].message.content
+    except openai.error.OpenAIError as e:
+        return {'error': str(e), 'status_code': e.http_status}
+
+def classify_receipt_or_not(file_path, file_id):
+    images_path, num_images = pre_processing_data(file_path, str(file_id))
+    prompt = prepare_prompt(CLASSIFICATION_PROMPT, images_path, num_images)
+    
+    client = create_openai_client()
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv('LLM_MODEL'),
+            messages=[prompt],
+            response_format={"type": "json_object"},
+        )
+        return response.choices[0].message.content
+    except openai.error.OpenAIError as e:
+        return {'error': str(e), 'status_code': e.http_status}
