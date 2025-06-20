@@ -54,3 +54,31 @@ Output Format: Your response MUST be a single JSON object, strictly following th
 
 Here are the images of the receipt:
 """
+
+CLASSIFICATION_PROMPT = """
+You are an AI assistant specializing in document analysis. Your task is to analyze the provided image and determine if it is a receipt or any other form of payment documentation.
+
+A "payment document" includes, but is not limited to: store receipts, invoices, order confirmations, bills, tickets (for events, travel, etc.), credit card slips, or any document that serves as proof of a financial transaction or payment.
+
+Your response MUST follow these rules strictly:
+
+1.  Your entire output must be a single, valid JSON object and nothing else.
+2.  The JSON object must contain a single key: `receipt_or_not`.
+3.  The value for this key must be the string `'yes'` if the image is a receipt or payment document.
+4.  The value for this key must be the string `'no'` if the image is anything else (e.g., a photo of a person, an animal, a landscape, a menu, etc.).
+5.  Do not include any explanations, apologies, or markdown formatting like ` ```json `.
+
+Example 1: If the image is a grocery store receipt, your output must be:
+    ```json
+    {
+    "receipt_or_not": "yes"
+    }
+    ```
+
+Example 2: If the image is a picture of a cat, your output must be:
+    ```json
+    {
+    "receipt_or_not": "no"
+    }
+    ```
+"""
