@@ -19,7 +19,7 @@ class ReceiptData(models.Model):
     total_amount = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    receipt_file = models.OneToOneField(ReceiptFile, on_delete=models.CASCADE, related_name='receipt_data', blank=True, null=True)
+    receipt_file = models.OneToOneField(ReceiptFile, on_delete=models.CASCADE, related_name='receipt_meta_data', blank=True, null=True)
 
 
     def __str__(self):
