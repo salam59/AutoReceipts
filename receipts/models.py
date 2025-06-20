@@ -20,7 +20,7 @@ class Receipt(models.Model):
     payment_method = models.CharField(max_length=255, blank=True, null=True)
     category = models.CharField(max_length=255, blank=True, null=True)
     receipt_file = models.OneToOneField(ReceiptMetaData, on_delete=models.CASCADE, related_name='receipt_meta_data', blank=True, null=True)
-    prompt = models.TextField(blank=True, null=True)
+    # prompt = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"{self.merchant_name} - {self.total_amount}"
