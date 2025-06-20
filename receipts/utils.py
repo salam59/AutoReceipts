@@ -7,13 +7,14 @@ import pypdfium2 as pdfium
 from PIL import Image
 from dotenv import load_dotenv
 
-from .prompts import RECEIPT_EXTRACT_PROMPT
+from receipts.prompts import RECEIPT_EXTRACT_PROMPT
 
 load_dotenv()
 
 def convert_pdf_to_images(file_path, file_id, scale=100/72):
         pdf_file = pdfium.PdfDocument(file_path)
         page_indices = [i for i in range(len(pdf_file))]
+        num_pages = len(pdf_file)
 
         renderer = pdf_file.render(
             pdfium.PdfBitmap.to_pil,
@@ -42,14 +43,15 @@ def convert_pdf_to_images(file_path, file_id, scale=100/72):
             image_path = os.path.join('images', file_id, f"{i+1}.jpg")
             Image.open(BytesIO(image_byte_array)).save(image_path)
 
-        return f'images/{file_id}'
+        return f'images/{file_id}', num_pages 
 
 def prepare_prompt(images_path, num_images):
     prompt_with_images = [
         {'type': 'text', 'text': RECEIPT_EXTRACT_PROMPT},
     ]
     for page in range(1, num_images + 1):
-        with open(images_path, 'rb') as image_file:
+        image_path = f"{images_path}/{page}.jpg"
+        with open(image_path, 'rb') as image_file:
             image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
             prompt_with_images.append({'type': 'image_url', 'image_url': {'url': f'data:image/jpeg;base64,{image_base64}'}})
     prompt_format = [
@@ -66,12 +68,12 @@ def extract_receipt_data(file_path, file_id):
         api_key=os.getenv('OPENAI_API_KEY')
         )
 
-    images_path, num_images = f'images/{file_id}'
+    images_path, num_images = convert_pdf_to_images(file_path, file_id)
     prompt = prepare_prompt(images_path, num_images)
 
     response = client.chat.completions.create(
         model=os.getenv('LLM_MODEL'),
-        messages=[{"role": "user", "content": RECEIPT_EXTRACT_PROMPT}],
+        messages=[prompt],
         response_format={"type": "json_object"},
     )
     return response.choices[0].message.content
