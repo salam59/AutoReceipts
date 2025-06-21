@@ -58,7 +58,7 @@ Here are the images of the receipt:
 CLASSIFICATION_PROMPT = """
 You are an AI assistant specializing in document analysis. Your task is to analyze the provided image and determine if it is a receipt or any other form of payment documentation.
 
-A "payment document" includes, but is not limited to: store receipts, invoices, order confirmations, bills, tickets (for events, travel, etc.), credit card slips, or any document that serves as proof of a financial transaction or payment.
+A "receipt" or "payment document" or "payment breakdown" includes, but is not limited to: store receipts, invoices, order confirmations, bills, tickets, hotel bills (for events, travel, etc.), credit card slips, or any document that serves as proof of a financial transaction or payment.
 
 Your response MUST follow these rules strictly:
 
@@ -67,6 +67,23 @@ Your response MUST follow these rules strictly:
 3.  The value for this key must be the string `'yes'` if the image is a receipt or payment document.
 4.  The value for this key must be the string `'no'` if the image is anything else (e.g., a photo of a person, an animal, a landscape, a menu, etc.).
 5.  Do not include any explanations, apologies, or markdown formatting like ` ```json `.
+
+The document is considered a payment document or receipt if it is any of the following:
+- Standard store receipts, invoices, or bills.
+- Hotel folios or detailed statements of charges from a stay.
+- Order confirmations that show a final total amount paid or due.
+- Credit card slips or transaction records.
+- Any document that contains an itemized list of goods or services with corresponding prices and a final total amount.
+s
+Criteria for a "no" response (This IS NOT a Payment Document):
+- The document is NOT a payment document if it is:
+- A non-document image (e.g., photo of a person, landscape, animal, object).
+- A document that does not record a transaction, such as:
+- A restaurant menu or a product catalog (these list prices but are not a record of a purchase).
+- A pre-stay booking confirmation that only confirms a future reservation without listing final, settled charges.
+- A packing slip that lists items but not prices.
+- A general letter or a shipping label.
+
 
 Example 1: If the image is a grocery store receipt, your output must be:
     ```json
