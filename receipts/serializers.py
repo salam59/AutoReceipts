@@ -6,12 +6,18 @@ class ReceiptMetaDataSerializer(serializers.ModelSerializer):
         model = ReceiptMetaData
         fields = '__all__'
 
-class ReceiptDataSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Receipt
-        fields = '__all__'
-
 class LineItemSerializer(serializers.ModelSerializer):
     class Meta:
         model = LineItem
-        fields = '__all__'
+        fields = ['description', 'quantity', 'unit_price', 'total']
+
+class ReceiptDataSerializer(serializers.ModelSerializer):
+    receipt_meta_data = serializers.IntegerField(source='receipt_file.id', read_only=True)
+    line_items = LineItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Receipt
+        fields = [
+            'id', 'purchased_at', 'merchant_name', 'total_amount', 'currency',
+            'payment_method', 'category', 'receipt_meta_data', 'line_items'
+        ]
