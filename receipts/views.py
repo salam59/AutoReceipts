@@ -101,3 +101,15 @@ class ProcessReceiptView(APIView):
         receipt_meta.save()
         serializer = ReceiptDataSerializer(receipt)
         return Response(serializer.data)
+    
+class ListReceiptsView(APIView):
+    def get(self, request, *args, **kwargs):
+        receipts = Receipt.objects.all()
+        serializer = ReceiptDataSerializer(receipts, many=True)
+        return Response(serializer.data)
+
+class ReceiptDetailView(APIView):
+    def get(self, request, id, *args, **kwargs):
+        receipt = get_object_or_404(Receipt, id=id)
+        serializer = ReceiptDataSerializer(receipt)
+        return Response(serializer.data)
