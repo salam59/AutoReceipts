@@ -8,7 +8,7 @@ import os, json
 from datetime import datetime
 
 from receipts.models import ReceiptMetaData, Receipt, LineItem
-from receipts.serializers import ReceiptMetaDataSerializer, ReceiptDataSerializer, LineItemSerializer
+from receipts.serializers import ReceiptMetaDataSerializer, ReceiptDataSerializer
 from receipts import utils
 
 ACCEPTED_FORMATS = ['.png', '.pdf', '.jpg', '.jpeg']
@@ -19,25 +19,70 @@ class UploadReceiptView(APIView):
     def post(self, request, *args, **kwargs):
         """
         Create a new receipt meta data entry, and save the file to disk
-        in 'uploads/' directory.
+        in 'uploads/' directory. Checks for duplicates using file hash.
 
         Returns:
-            Response: A JSON response with the new receipt meta data entry.
+            Response: A JSON response with the new receipt meta data entry or duplicate info.
         """
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({'error': 'Attach PDF or Image please'})
         if not file_obj.name.lower().endswith(tuple(ACCEPTED_FORMATS)):
             return Response({'error': f'Not a Valid format - Supported Formats: {str(ACCEPTED_FORMATS)}'}, status=status.HTTP_400_BAD_REQUEST)
-        receipt_meta = ReceiptMetaData.objects.create(file_name=file_obj.name)
+        
+        # Read file content and generate hash
+        file_content = file_obj.read()
+        file_hash = utils.generate_file_hash_from_content(file_content)
+        
+        # Check for existing file with same hash
+        existing_receipt = ReceiptMetaData.objects.filter(file_hash=file_hash).first()
+        if existing_receipt:
+            duplicate_strategy = request.query_params.get('duplicate_strategy', 'reject')
+            
+            if duplicate_strategy == 'reject':
+                return Response({
+                    'error': 'Duplicate file detected',
+                    'duplicate_info': {
+                        'existing_id': existing_receipt.id,
+                        'existing_file_name': existing_receipt.file_name,
+                        'uploaded_at': existing_receipt.created_at.isoformat(),
+                        'is_processed': existing_receipt.is_processed,
+                        'is_valid': existing_receipt.is_valid
+                    },
+                    'message': 'Use duplicate_strategy=update to update existing receipt or duplicate_strategy=ignore to create new entry'
+                }, status=status.HTTP_409_CONFLICT)
+            
+            elif duplicate_strategy == 'update':
+                # Update existing receipt metadata
+                existing_receipt.file_name = file_obj.name
+                existing_receipt.updated_at = datetime.now()
+                existing_receipt.save()
+                
+                # Update the file on disk
+                os.makedirs('uploads', exist_ok=True)
+                file_path = os.path.join('uploads', f'file-{existing_receipt.id}_{file_obj.name}')
+                with open(file_path, 'wb+') as f:
+                    f.write(file_content)
+                existing_receipt.file_path = file_path
+                existing_receipt.save()
+                
+                serializer = ReceiptMetaDataSerializer(existing_receipt)
+                return Response({
+                    'message': 'Existing receipt updated successfully',
+                    'receipt': serializer.data
+                }, status=status.HTTP_200_OK)
+        
+        # Create new receipt metadata
+        receipt_meta = ReceiptMetaData.objects.create(file_name=file_obj.name, file_hash=file_hash)
+        
         # Save file to disk in 'uploads/' directory
         os.makedirs('uploads', exist_ok=True)
         file_path = os.path.join('uploads', f'file-{receipt_meta.id}_{file_obj.name}')
         with open(file_path, 'wb+') as f:
-            for chunk in file_obj.chunks():
-                f.write(chunk)
+            f.write(file_content)
         receipt_meta.file_path = file_path
         receipt_meta.save()
+        
         serializer = ReceiptMetaDataSerializer(receipt_meta)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -70,6 +115,7 @@ class ProcessReceiptView(APIView):
     def get(self, request, receipt_id, *args, **kwargs):
         """
         Process a receipt by extracting data from it and saving the extracted data.
+        Handles duplicate processing scenarios.
 
         Args:
             request: The request object.
@@ -78,10 +124,30 @@ class ProcessReceiptView(APIView):
         Returns:
             Response: A JSON response with the extracted data.
         """
+        # Check if receipt has already been processed
         receipt_data = Receipt.objects.filter(receipt_file=receipt_id)
-        receipt_data_serializer = ReceiptDataSerializer(receipt_data)
+        receipt_data_serializer = ReceiptDataSerializer(receipt_data, many=True)
+        
         if receipt_data:
-            return Response(receipt_data_serializer.data)
+            duplicate_strategy = request.query_params.get('duplicate_strategy', 'return_existing')
+            
+            if duplicate_strategy == 'return_existing':
+                return Response({
+                    'message': 'Receipt already processed',
+                    'receipt': receipt_data_serializer.data
+                }, status=status.HTTP_200_OK)
+            
+            elif duplicate_strategy == 'reprocess':
+                # Delete existing receipt data and reprocess
+                receipt_data.delete()
+                # Continue with processing below
+            else:
+                return Response({
+                    'error': 'Receipt already processed',
+                    'existing_data': receipt_data_serializer.data,
+                    'message': 'Use duplicate_strategy=reprocess to reprocess or duplicate_strategy=return_existing to return existing data'
+                }, status=status.HTTP_409_CONFLICT)
+        
         receipt_meta = get_object_or_404(ReceiptMetaData, id=receipt_id)
         if not receipt_meta.is_valid:
             return Response({'error': f'Not a Valid Receipt - Reason :- {receipt_meta.invalid_reason}'}, status=status.HTTP_400_BAD_REQUEST)
@@ -108,7 +174,6 @@ class ProcessReceiptView(APIView):
             category=extracted_data.get('category'),
             purchased_at=extracted_data.get('purchased_at'),
             receipt_file=receipt_meta,
-            # prompt=str(extracted_data)
         )
         line_items = extracted_data.get('line_items') or []
         for item in line_items:
