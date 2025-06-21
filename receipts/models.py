@@ -1,8 +1,11 @@
 from django.db import models
+import hashlib
+import os
 
 class ReceiptMetaData(models.Model):
     file_name = models.CharField(max_length=255)
     file_path = models.CharField(max_length=255)
+    file_hash = models.CharField(max_length=64, unique=True, blank=True, null=True)
     is_valid = models.BooleanField(default=False)
     invalid_reason = models.CharField(max_length=255, blank=True, null=True)
     is_processed = models.BooleanField(default=False)
@@ -11,6 +14,27 @@ class ReceiptMetaData(models.Model):
 
     def __str__(self):
         return self.file_name
+    
+    def generate_file_hash(self):
+        """Generate SHA-256 hash of the file content"""
+        if not self.file_path or not os.path.exists(self.file_path):
+            return None
+        
+        hash_sha256 = hashlib.sha256()
+        try:
+            with open(self.file_path, "rb") as f:
+                for chunk in iter(lambda: f.read(4096), b""):
+                    hash_sha256.update(chunk)
+            return hash_sha256.hexdigest()
+        except Exception as e:
+            print(f"Error generating hash for {self.file_path}: {e}")
+            return None
+    
+    def save(self, *args, **kwargs):
+        # Generate file hash if not already set and file exists
+        if not self.file_hash and self.file_path and os.path.exists(self.file_path):
+            self.file_hash = self.generate_file_hash()
+        super().save(*args, **kwargs)
 
 class Receipt(models.Model):
     purchased_at = models.DateTimeField(blank=True, null=True)

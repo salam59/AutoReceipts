@@ -1,6 +1,6 @@
 from io import BytesIO
 import os
-import shutil, base64, json
+import base64, hashlib
 
 import openai
 from openai import OpenAI
@@ -119,3 +119,9 @@ def classify_receipt_or_not(file_path, file_id):
         return response.choices[0].message.content
     except openai.error.OpenAIError as e:
         return {'error': str(e), 'status_code': e.http_status}
+
+def generate_file_hash_from_content(file_content):
+    """Generate SHA-256 hash from file content"""
+    hash_sha256 = hashlib.sha256()
+    hash_sha256.update(file_content)
+    return hash_sha256.hexdigest()
