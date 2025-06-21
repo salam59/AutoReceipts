@@ -17,6 +17,13 @@ class UploadReceiptView(APIView):
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request, *args, **kwargs):
+        """
+        Create a new receipt meta data entry, and save the file to disk
+        in 'uploads/' directory.
+
+        Returns:
+            Response: A JSON response with the new receipt meta data entry.
+        """
         file_obj = request.FILES.get('file')
         if not file_obj:
             return Response({'error': 'Attach PDF or Image please'})
@@ -36,6 +43,12 @@ class UploadReceiptView(APIView):
 
 class ValidateReceiptView(APIView):
     def get(self, request, receipt_id, *args, **kwargs):
+        """
+        Validate a receipt by checking if it is a receipt or not.
+
+        Returns:
+            Response: A JSON response with the updated receipt meta data entry.
+        """
         receipt_meta = get_object_or_404(ReceiptMetaData, id=receipt_id)
         file_path, file_id = receipt_meta.file_path, receipt_id
         receipt_or_not = utils.classify_receipt_or_not(file_path, file_id)
@@ -55,6 +68,16 @@ class ValidateReceiptView(APIView):
 
 class ProcessReceiptView(APIView):
     def get(self, request, receipt_id, *args, **kwargs):
+        """
+        Process a receipt by extracting data from it and saving the extracted data.
+
+        Args:
+            request: The request object.
+            receipt_id: The id of the receipt to be processed.
+
+        Returns:
+            Response: A JSON response with the extracted data.
+        """
         receipt_data = Receipt.objects.filter(receipt_file=receipt_id)
         receipt_data_serializer = ReceiptDataSerializer(receipt_data)
         if receipt_data:
@@ -104,12 +127,28 @@ class ProcessReceiptView(APIView):
     
 class ListReceiptsView(APIView):
     def get(self, request, *args, **kwargs):
+        """
+        Returns a list of all receipts.
+
+        Returns:
+            Response: A JSON response containing a list of receipts.
+        """
         receipts = Receipt.objects.all()
         serializer = ReceiptDataSerializer(receipts, many=True)
         return Response(serializer.data)
 
 class ReceiptDetailView(APIView):
     def get(self, request, id, *args, **kwargs):
+        """
+        Retrieve a single receipt by its id.
+
+        Args:
+            request: The request object.
+            id: The id of the receipt to retrieve.
+
+        Returns:
+            Response: A JSON response with the receipt data.
+        """
         receipt = get_object_or_404(Receipt, id=id)
         serializer = ReceiptDataSerializer(receipt)
         return Response(serializer.data)
